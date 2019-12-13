@@ -122,7 +122,7 @@ func NewLogger(depth ...int) *LocalLogger {
 type logConfig struct {
 	TimeFormat string         `json:"TimeFormat"`
 	Console    *consoleLogger `json:"Console,omitempty"`
-	File       *fileLogger    `json:"File,omitempty"`
+	File       fileLoggers    `json:"File,omitempty"`
 	Conn       *connLogger    `json:"Conn,omitempty"`
 }
 
@@ -143,6 +143,7 @@ func (this *LocalLogger) SetLogger(adapterName string, configs ...string) error 
 	var num int = -1
 	var i int
 	var l *nameLogger
+	fmt.Printf("outputs: %s   %+v\n", adapterName, this.outputs)
 	for i, l = range this.outputs {
 		if l.name == adapterName {
 			if l.config == config {

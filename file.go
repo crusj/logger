@@ -17,7 +17,6 @@ import (
 type fileLogger struct {
 	sync.RWMutex
 	fileWriter *os.File
-
 	Filename   string `json:"filename"`
 	Append     bool   `json:"append"`
 	MaxLines   int    `json:"maxlines"`
@@ -34,6 +33,25 @@ type fileLogger struct {
 	dailyOpenTime        time.Time
 	fileNameOnly, suffix string
 }
+type fileLoggers map[string]*fileLogger
+
+func (fs fileLoggers) Init(jsonConfig string) error {
+	fmt.Printf("fileLoggers Init:%s\n", jsonConfig)
+	if len(jsonConfig) == 0 {
+		return nil
+	}
+	err := json.Unmarshal([]byte(jsonConfig), &fs)
+	if err != nil {
+		return err
+	}
+	for _, logger := range fs {
+		err := fs.channelInit(logger)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 // Init file logger with json config.
 // jsonConfig like:
@@ -46,15 +64,7 @@ type fileLogger struct {
 //	"rotate":true,
 //  	"permit":"0600"
 //	}
-func (f *fileLogger) Init(jsonConfig string) error {
-	fmt.Printf("fileLogger Init:%s\n", jsonConfig)
-	if len(jsonConfig) == 0 {
-		return nil
-	}
-	err := json.Unmarshal([]byte(jsonConfig), f)
-	if err != nil {
-		return err
-	}
+func (fs fileLoggers) channelInit(f *fileLogger) error {
 	if len(f.Filename) == 0 {
 		return errors.New("jsonconfig must have filename")
 	}
@@ -67,8 +77,31 @@ func (f *fileLogger) Init(jsonConfig string) error {
 	if l, ok := LevelMap[f.Level]; ok {
 		f.LogLevel = l
 	}
-	err = f.newFile()
+	err := f.newFile()
 	return err
+}
+func (fs fileLoggers) LogWrite(when time.Time, msgText interface{}, level int) error {
+	channelCount := len(channels.channel)
+	//默认通道
+	if channelCount == 0 {
+		if logger, exists := fs["default"]; exists {
+			return logger.LogWrite(when, msgText, level)
+		} else {
+			return errors.New("no default file logger channel")
+		}
+	} else {
+		for _, channelName := range channels.channel {
+			if logger, exists := fs[channelName]; exists {
+				return logger.LogWrite(when, msgText, level)
+			}
+		}
+		return nil
+	}
+}
+func (fs fileLoggers) Destroy() {
+	for _, logger := range fs {
+		logger.fileWriter.Close()
+	}
 }
 
 func (f *fileLogger) needCreateFresh(size int, day int) bool {
@@ -274,13 +307,15 @@ func (f *fileLogger) Destroy() {
 }
 
 func init() {
-	Register(AdapterFile, &fileLogger{
-		Daily:      true,
-		MaxDays:    7,
-		Append:     true,
-		LogLevel:   LevelDebug,
-		PermitMask: "0777",
-		MaxLines:   10,
-		MaxSize:    10 * 1024 * 1024,
+	Register(AdapterFile, &fileLoggers{
+		"default": &fileLogger{
+			Daily:      true,
+			MaxDays:    7,
+			Append:     true,
+			LogLevel:   LevelDebug,
+			PermitMask: "0777",
+			MaxLines:   10,
+			MaxSize:    10 * 1024 * 1024,
+		},
 	})
 }
