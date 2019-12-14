@@ -33,6 +33,18 @@ type fileLogger struct {
 	dailyOpenTime        time.Time
 	fileNameOnly, suffix string
 }
+
+var defaultFileLogger *fileLogger = &fileLogger{
+	Filename:   "default.log",
+	Daily:      true,
+	MaxDays:    7,
+	Append:     true,
+	LogLevel:   LevelDebug,
+	PermitMask: "0777",
+	MaxLines:   10,
+	MaxSize:    10 * 1024 * 1024,
+}
+
 type fileLoggers map[string]*fileLogger
 
 func (fs fileLoggers) Init(jsonConfig string) error {
@@ -68,6 +80,7 @@ func (fs fileLoggers) channelInit(f *fileLogger) error {
 	if len(f.Filename) == 0 {
 		return errors.New("jsonconfig must have filename")
 	}
+	fs.defaultIfZero(f)
 	f.suffix = filepath.Ext(f.Filename)
 	f.fileNameOnly = strings.TrimSuffix(f.Filename, f.suffix)
 	f.MaxSize *= 1024 * 1024 // 将单位转换成MB
@@ -79,6 +92,25 @@ func (fs fileLoggers) channelInit(f *fileLogger) error {
 	}
 	err := f.newFile()
 	return err
+}
+
+//未设置值，则使用默认值
+func (fs fileLoggers) defaultIfZero(f *fileLogger) {
+	if f.MaxLines == 0 {
+		f.MaxLines = defaultFileLogger.MaxLines
+	}
+	if f.MaxSize == 0 {
+		f.MaxSize = defaultFileLogger.MaxSize
+	}
+	if f.MaxDays == 0 {
+		f.MaxDays = defaultFileLogger.MaxDays
+	}
+	if f.Level == "" {
+		f.LogLevel = defaultFileLogger.LogLevel
+	}
+	if f.PermitMask == "" {
+		f.PermitMask = defaultFileLogger.PermitMask
+	}
 }
 func (fs fileLoggers) LogWrite(when time.Time, msgText interface{}, level int) error {
 	channelCount := len(channels.channel)
@@ -92,7 +124,13 @@ func (fs fileLoggers) LogWrite(when time.Time, msgText interface{}, level int) e
 	} else {
 		for _, channelName := range channels.channel {
 			if logger, exists := fs[channelName]; exists {
-				return logger.LogWrite(when, msgText, level)
+				fmt.Println("通道", channelName, "开始记录日志")
+				err := logger.LogWrite(when, msgText, level)
+				if err != nil {
+					return err
+				}
+			} else {
+				return fmt.Errorf("通道%v不存在\n", channelName)
 			}
 		}
 		return nil
@@ -308,14 +346,6 @@ func (f *fileLogger) Destroy() {
 
 func init() {
 	Register(AdapterFile, &fileLoggers{
-		"default": &fileLogger{
-			Daily:      true,
-			MaxDays:    7,
-			Append:     true,
-			LogLevel:   LevelDebug,
-			PermitMask: "0777",
-			MaxLines:   10,
-			MaxSize:    10 * 1024 * 1024,
-		},
+		"default": defaultFileLogger,
 	})
 }

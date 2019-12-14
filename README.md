@@ -1,5 +1,5 @@
 # logger
-convenient log package
+convenient log package,z
 
 # 1. 使用说明
 ```go

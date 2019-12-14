@@ -3,15 +3,139 @@ package logger
 import (
 	"bufio"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
 
+//测试默认通道
+func TestDefaultChannel(t *testing.T) {
+	defaultLogger = NewLogger()
+	defaultLogger.SetLogger(AdapterFile, `{"default":{"filename":"default.log", "permit": "660", "maxlines":100000, "maxsize":1, "append":true}}`)
+	defaultLogger.Info("默认测试")
+	file, err := os.Open("default.log")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove("default.log")
+
+	content, err := ioutil.ReadAll(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contentStr := string(content)
+	contentSplit := strings.Split(contentStr, " ")
+	contentCount := len(contentSplit)
+	if contentCount != 5 {
+		t.Fatal("日志内容错误", contentStr)
+	}
+	if contentSplit[2] != "[INFO]" {
+		t.Fatal("日志内容级别错误")
+	}
+	if contentSplit[4] != "默认测试\n" {
+		t.Fatal("日志内容错误")
+	}
+}
+func TestSingleChannel(t *testing.T) {
+	defaultLogger = NewLogger()
+	defaultLogger.SetLogger(AdapterFile, `{"wx":{"filename":"wx.log", "permit": "660", "maxlines":100000, "maxsize":1, "append":true}}`)
+	Channel("wx").Info("微信测试")
+	channelCount := len(channels.channel)
+	if channelCount != 1 {
+		t.Fatal("通道数量错误", channelCount)
+	}
+	if channels.channel[0] != "wx" {
+		t.Fatal("通道错误", channels.channel[0])
+	}
+	file, err := os.Open("wx.log")
+	if err != nil {
+		t.Fatalf("单个文件日志通道错误,%v", err)
+	}
+	if file.Name() != "wx.log" {
+		t.Fatal("单个文件日志通道不通过", err)
+	}
+	content, err := ioutil.ReadAll(file)
+	contentStr := string(content)
+	contentSplit := strings.Split(contentStr, " ")
+	os.Remove("wx.log")
+	if err != nil {
+		t.Fatal(err)
+	} else {
+		contentCount := len(contentSplit)
+		if contentCount == 0 {
+			t.Fatalf("内容错误%v\n", contentCount)
+		}
+		if contentSplit[2] != "[INFO]" {
+			t.Fatalf("日志通道类型错误%v\n", contentSplit[2])
+		}
+		if contentSplit[contentCount-1] != "微信测试\n" {
+			t.Fatalf("日志信息错误,内容是:%v", string(content))
+		}
+	}
+}
+func TestChannels(t *testing.T) {
+	defaultLogger = NewLogger()
+	config := `
+{
+  "default" : {
+    "permit" : "660",
+    "filename" : "default.log",
+    "maxlines" : 100000,
+    "append" : true,
+    "maxsize" : 1
+  },
+  "pay" : {
+    "permit" : "660",
+    "filename" : "pay.log",
+    "maxlines" : 100000,
+    "append" : true,
+    "maxsize" : 1
+  },
+  "queue" : {
+    "permit" : "660",
+    "filename" : "queue.log",
+    "maxlines" : 100000,
+    "append" : true,
+    "maxsize" : 1
+  }
+}
+`
+	defaultLogger.SetLogger(AdapterFile, config)
+	Channels([]string{"pay", "queue"}).Info("多通道测试")
+	CheckFile("pay.log", "INFO", "多通道测试", t)
+	CheckFile("queue.log", "INFO", "多通道测试", t)
+
+}
+func CheckFile(fileName string, level string, info string, t *testing.T) {
+	file, err := os.Open(fileName)
+	if err != nil {
+		t.Fatalf("单个文件日志通道错误,%v", err)
+	}
+	content, err := ioutil.ReadAll(file)
+	contentStr := string(content)
+	contentSplit := strings.Split(contentStr, " ")
+	os.Remove(fileName)
+	if err != nil {
+		t.Fatal(err)
+	} else {
+		contentCount := len(contentSplit)
+		if contentCount == 0 {
+			t.Fatalf("内容错误%v\n", contentCount)
+		}
+		if contentSplit[2] != "["+level+"]" {
+			t.Fatalf("日志通道%v类型错误%v\n", level, contentSplit[2])
+		}
+		if contentSplit[contentCount-1] != info+"\n" {
+			t.Fatalf("日志信息错误,内容是:%v", string(content))
+		}
+	}
+}
 func TestFilePermit(t *testing.T) {
 	log := NewLogger()
-	log.SetLogger(AdapterFile, `{"default":{"filename":"test.log", "rotateperm": "0666", "maxlines":100000, "maxsize":1, "append":true}}`)
+	log.SetLogger(AdapterFile, `{"default":{"filename":"test.log", "permit": "660", "maxlines":100000, "maxsize":1, "append":true}}`)
 	log.Trace("trace")
 	log.Debug("debug")
 	log.Info("info")
@@ -26,8 +150,8 @@ func TestFilePermit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if file.Mode() != 0666 {
-		t.Fatal("unexpected log file permission")
+	if file.Mode() != 0660 {
+		t.Fatalf("unexpected log file permission %v", file.Mode())
 	}
 	os.Remove("test.log")
 }
