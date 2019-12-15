@@ -1,9 +1,19 @@
 # logger
-convenient log package,z
+convenient log package
 
-# 1. 使用说明
+# 功能新增
+
+在原作者文件日志的基础上可以定义日志文件通道，可以同时向这些对应通道配置的日志文件写入日志信息
 ```go
-    import  "github.com/wonderivan/logger"
+import  "github.com/crusj/logger"
+logger.Channel("default").Info("向默认日志文件通道写入日志")
+logger.Channels([]string{"default","channel1","channel2"}).Info("同时default、channel1、channel2日志文件通道写入日志")
+logger.Info("默认使用默认default日志文件通道")
+```
+
+# 1. 基本使用
+```go
+    import  "github.com/crusj/logger"
 
     // 配置logger，如果不配置时默认为控制台输出，等级为DEBG
     logger.SetLogger(`{"Console": {"level": "DEBG"}`)
@@ -59,14 +69,37 @@ logger当前支持控制台、文件、网络3种方式适配器输出，可以�
         "color": true       // 控制台日志颜色开关 
     },
     "File": {                   // 文件日志配置
-        "filename": "app.log",  // 初始日志文件名
-        "level": "TRAC",        // 日志文件日志输出等级
-        "daily": true,          // 跨天后是否创建新日志文件，当append=true时有效
-        "maxlines": 1000000,    // 日志文件最大行数，当append=true时有效
-        "maxsize": 1,           // 日志文件最大大小，当append=true时有效
-        "maxdays": -1,          // 日志文件有效期
-        "append": true,         // 是否支持日志追加
-        "permit": "0660"        // 新创建的日志文件权限属性
+        "default" : {               //默认通道
+            "filename": "app.log",  // 初始日志文件名
+            "level": "TRAC",        // 日志文件日志输出等级
+            "daily": true,          // 跨天后是否创建新日志文件，当append=true时有效
+            "maxlines": 1000000,    // 日志文件最大行数，当append=true时有效
+            "maxsize": 1,           // 日志文件最大大小，当append=true时有效
+            "maxdays": -1,          // 日志文件有效期
+            "append": true,         // 是否支持日志追加
+            "permit": "0660",       // 新创建的日志文件权限属性
+        },
+        "channel1" : {              //日志通道1
+            "filename": "channel1.log", 
+            "level": "TRAC",      
+            "daily": true,       
+            "maxlines": 1000000, 
+            "maxsize": 1,       
+            "maxdays": -1,     
+            "append": true,   
+            "permit": "0660", 
+        },
+        "channel2" : {               //日志通道2
+            "filename": "channel2.log", 
+            "level": "TRAC",      
+            "daily": true,       
+            "maxlines": 1000000, 
+            "maxsize": 1,       
+            "maxdays": -1,     
+            "append": true,   
+            "permit": "0660", 
+        }       
+
     },
     "Conn": {                       // 网络日志配置
         "net":"tcp",                // 日志传输模式
