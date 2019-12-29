@@ -100,6 +100,7 @@ type LocalLogger struct {
 	callDepth  int
 	timeFormat string
 	usePath    string
+	shortLog   bool
 }
 
 func NewLogger(depth ...int) *LocalLogger {
@@ -129,7 +130,12 @@ type logConfig struct {
 func init() {
 	defaultLogger = NewLogger(3)
 }
-
+func (this *LocalLogger) OpenShortLog() {
+	this.shortLog = true
+}
+func (this *LocalLogger) CloseShortLog() {
+	this.shortLog = false
+}
 func (this *LocalLogger) SetLogger(adapterName string, configs ...string) error {
 	this.lock.Lock()
 	defer this.lock.Unlock()
@@ -208,7 +214,10 @@ func (this *LocalLogger) writeToLoggers(when time.Time, msg *loginfo, level int)
 			continue
 		}
 
-		msgStr := when.Format(this.timeFormat) + " [" + msg.Level + "] " + "[" + msg.Path + "] " + msg.Content
+		msgStr := msg.Content
+		if this.shortLog == false {
+			msgStr = when.Format(this.timeFormat) + " [" + msg.Level + "] " + "[" + msg.Path + "] " + msg.Content
+		}
 		err := l.LogWrite(when, msgStr, level)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "unable to WriteMsg to adapter:%v,error:%v\n", l.name, err)
@@ -462,4 +471,10 @@ func stringTrim(s string, cut string) string {
 		return ss[0]
 	}
 	return ss[1]
+}
+func OpenShortLog() {
+	defaultLogger.OpenShortLog();
+}
+func CloseShortLog() {
+	defaultLogger.CloseShortLog();
 }
