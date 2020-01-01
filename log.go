@@ -149,7 +149,6 @@ func (this *LocalLogger) SetLogger(adapterName string, configs ...string) error 
 	var num int = -1
 	var i int
 	var l *nameLogger
-	fmt.Printf("outputs: %s   %+v\n", adapterName, this.outputs)
 	for i, l = range this.outputs {
 		if l.name == adapterName {
 			if l.config == config {
